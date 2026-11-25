@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trainings-Dashboard</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--tx:#1b1f24;--mu:#6b7280;--bd:#e3e5e9;--rad:#e4572e;--kra:#2a9d8f;--pil:#7b61ff;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171a;--card:#1e2328;--tx:#eceff2;--mu:#9aa3ad;--bd:#2f363d;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14171a;--card:#1e2328;--tx:#eceff2;--mu:#9aa3ad;--bd:#2f363d;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:14px}
+h1{font-size:20px;margin:6px 0 12px}
+h2{font-size:16px;margin:0 0 10px}
+.tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px}
+.tabs button{flex:1;white-space:nowrap}
+button,input,select{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px 10px}
+button{cursor:pointer}
+button.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row>*{flex:1 1 110px;min-width:0}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.nav b{flex:1;text-align:center}
+.nav button{flex:none}
+.mu{color:var(--mu);font-size:13px}
+.bar{height:10px;background:var(--bd);border-radius:6px;overflow:hidden;margin:8px 0 2px}
+.bar i{display:block;height:100%;background:var(--kra);transition:width .25s}
+.day{border-top:1px solid var(--bd);padding:8px 0}
+.day:first-of-type{border-top:0}
+.day h3{font-size:13px;margin:0 0 4px;color:var(--mu);font-weight:600}
+.day h3.today{color:var(--rad)}
+.t{display:flex;align-items:center;gap:10px;padding:5px 0}
+.t input[type=checkbox]{width:22px;height:22px;flex:none;accent-color:var(--kra)}
+.t span{flex:1}
+.t.d span{text-decoration:line-through;color:var(--mu)}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.x{background:none;border:0;color:var(--mu);padding:2px 8px;flex:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--bd);border-radius:20px;padding:3px 6px 3px 10px;font-size:13px}
+.chip button{border:0;background:none;padding:0 4px;color:var(--mu)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:6px 4px;border-top:1px solid var(--bd);text-align:left}
+.sc{overflow-x:auto}
+.stat{display:flex;gap:10px}
+.stat div{flex:1;background:var(--bg);border-radius:12px;padding:10px;text-align:center}
+.stat b{display:block;font-size:22px}
+textarea{width:100%;height:90px;font:12px monospace;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px}
+svg text{fill:var(--mu);font-size:9px}
+[hidden]{display:none!important}
+</style></head><body><main>
+<h1>🚴 Mein Trainings-Dashboard</h1>
+<div class="tabs" id="tabs"></div>
+<div id="v"></div>
+</main>
+<script>
+const CATS={rad:['Rad','var(--rad)'],kra:['Kraft','var(--kra)'],pil:['Pilates/Oberkörper','var(--pil)']};
+const DAYS=['Mo','Di','Mi','Do','Fr','Sa','So'];
+const TPL=[[],
+[['Sweet Spot 2×20 min (Zwift)','rad'],['Oberkörper/Pilates','pil']],
+[['Kraft Beine','kra']],
+[['Intervalle 4×5 min (Zwift)','rad'],['Oberkörper/Pilates','pil']],
+[['Kraft Beine','kra']],
+[['VO2max 30×40 s/20 s (Zwift)','rad'],['Oberkörper/Pilates','pil']],
+[['Longride ca. 3 h Zone 2','rad']]];
+const RTYPES=['Sweet Spot 2×20','Intervalle 4×5','VO2max 30/40–20','Longride Z2','Sonstiges'];
+const EX0=['Bulgarian Split Squat','Hip Lift einbeinig','Goblet Squat','Copenhagen Plank','Kniebeuge','Rumänisches Kreuzheben','Ausfallschritte','Step-ups','Wadenheben','Glute Bridge','Plank','Liegestütze','Rudern'];
+let S={weeks:{},rides:[],lifts:[],ex:EX0.slice()},mem=null,tab='w',off=0;
+try{const r=localStorage.getItem('trainingDash');if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
+function save(){try{localStorage.setItem('trainingDash',JSON.stringify(S))}catch(e){}}
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+function monday(d){const x=new Date(d);x.setHours(12,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x}
+function wk(o){const m=monday(new Date());m.setDate(m.getDate()+7*o);return m}
+function week(k){if(!S.weeks[k])S.weeks[k]=TPL.map(a=>a.map(t=>({t:t[0],c:t[1],d:0})));return S.weeks[k]}
+const fmt=d=>d.toLocaleDateString('de-DE',{day:'numeric',month:'short'});
+function pct(k){const w=S.weeks[k];if(!w)return 0;let a=0,b=0;w.forEach(d=>d.forEach(t=>{a++;b+=t.d}));return a?Math.round(b/a*100):0}
+function tabs(){const T=[['w','Woche'],['r','Rad-Log'],['k','Kraft'],['f','Fortschritt'],['b','Backup']];
+$('tabs').innerHTML=T.map(t=>`<button class="${tab==t[0]?'on':''}" onclick="tab='${t[0]}';draw()">${t[1]}</button>`).join('')}
+function draw(){tabs();$('v').innerHTML={w:vWeek,r:vRide,k:vLift,f:vProg,b:vBack}[tab]()}
+function vWeek(){const m=wk(off),k=iso(m),w=week(k),e=new Date(m);e.setDate(e.getDate()+6);
+let a=0,b=0;w.forEach(d=>d.forEach(t=>{a++;b+=t.d}));const p=a?Math.round(b/a*100):0,td=iso(new Date());
+let h=`<div class="card"><div class="nav"><button onclick="off--;draw()">‹</button><b>${fmt(m)} – ${fmt(e)}</b><button onclick="off++;draw()">›</button></div>
+<div class="bar"><i style="width:${p}%"></i></div><div class="mu">${b} von ${a} Einheiten erledigt (${p} %)${off?' · <a href="#" onclick="off=0;draw();return false">zur aktuellen Woche</a>':''}</div></div><div class="card">`;
+w.forEach((d,i)=>{const dt=new Date(m);dt.setDate(dt.getDate()+i);
+h+=`<div class="day"><h3 class="${iso(dt)==td?'today':''}">${DAYS[i]} ${fmt(dt)}${d.length?'':' · frei'}</h3>`;
+d.forEach((t,j)=>h+=`<div class="t ${t.d?'d':''}"><input type="checkbox" ${t.d?'checked':''} onchange="tg('${k}',${i},${j})"><i class="dot" style="background:${CATS[t.c][1]}"></i><span>${esc(t.t)}</span><button class="x" onclick="rm('${k}',${i},${j})" aria-label="Löschen">×</button></div>`);
+h+=`<div class="row" style="margin-top:4px"><input id="n${i}" placeholder="+ Einheit hinzufügen" onkeydown="if(event.key=='Enter')add('${k}',${i})"><select id="c${i}" style="flex:0 0 120px">${Object.keys(CATS).map(c=>`<option value="${c}">${CATS[c][0]}</option>`).join('')}</select><button style="flex:0 0 44px" onclick="add('${k}',${i})">+</button></div></div>`});
+return h+'</div>'}
+function tg(k,i,j){const t=week(k)[i][j];t.d=t.d?0:1;save();draw()}
+function rm(k,i,j){week(k)[i].splice(j,1);save();draw()}
+function add(k,i){const v=$('n'+i).value.trim();if(!v)return;week(k)[i].push({t:v,c:$('c'+i).value,d:0});save();draw()}
+function vRide(){const t=iso(new Date());
+let h=`<div class="card"><h2>Radeinheit eintragen</h2><div class="row"><input type="date" id="rd" value="${t}"><select id="rt">${RTYPES.map(x=>`<option>${x}</option>`).join('')}</select></div>
+<div class="row" style="margin-top:8px"><input type="number" id="rm" placeholder="Minuten"><input type="number" id="rw" placeholder="Ø Watt"><input type="number" id="rh" placeholder="Ø Puls"></div>
+<div class="row" style="margin-top:8px"><input id="rn" placeholder="Notiz (z. B. Gefühl, FTP-Test …)" style="flex:3 1 200px"><button onclick="addRide()" style="flex:1 1 90px">Speichern</button></div></div>
+<div class="card"><h2>Letzte Einheiten</h2>`;
+const L=S.rides.slice().sort((a,b)=>b.d.localeCompare(a.d)).slice(0,15);
+if(!L.length)h+='<div class="mu">Noch nichts eingetragen.</div>';else{h+='<div class="sc"><table><tr><th>Datum</th><th>Typ</th><th>Min</th><th>Watt</th><th>Puls</th><th></th></tr>';
+L.forEach(r=>h+=`<tr><td>${r.d.slice(8)}.${r.d.slice(5,7)}.</td><td>${esc(r.t)}${r.n?`<div class="mu">${esc(r.n)}</div>`:''}</td><td>${r.m||''}</td><td>${r.w||''}</td><td>${r.h||''}</td><td><button class="x" onclick="delR('${r.id}')">×</button></td></tr>`);h+='</table></div>'}
+return h+'</div>'}
+function addRide(){const m=+$('rm').value;if(!m)return;S.rides.push({id:Date.now()+'',d:$('rd').value,t:$('rt').value,m,w:+$('rw').value||0,h:+$('rh').value||0,n:$('rn').value.trim()});save();draw()}
+function delR(id){S.rides=S.rides.filter(r=>r.id!=id);save();draw()}
+function vLift(){const t=iso(new Date());
+let h=`<div class="card"><h2>Satz eintragen</h2><div class="row"><input type="date" id="ld" value="${t}"><input id="le" list="exl" placeholder="Übung wählen oder neu tippen"></div>
+<datalist id="exl">${S.ex.map(x=>`<option value="${esc(x)}">`).join('')}</datalist>
+<div class="row" style="margin-top:8px"><input type="number" id="ls" placeholder="Sätze"><input type="number" id="lr" placeholder="Wdh."><input type="number" step="0.5" id="lk" placeholder="kg (0 = Körpergewicht)"><button onclick="addLift()">Speichern</button></div>
+<div class="mu" style="margin-top:6px">Neue Übungen werden automatisch in deine Liste übernommen.</div></div>
+<div class="card"><h2>Meine Übungen</h2><div class="chips">${S.ex.map((x,i)=>`<span class="chip">${esc(x)}<button onclick="S.ex.splice(${i},1);save();draw()">×</button></span>`).join('')}</div></div>
+<div class="card"><h2>Verlauf je Übung</h2>`;
+const by={};S.lifts.slice().sort((a,b)=>a.d.localeCompare(b.d)).forEach(l=>(by[l.e]=by[l.e]||[]).push(l));
+const ks=Object.keys(by);
+if(!ks.length)h+='<div class="mu">Noch keine Sätze eingetragen.</div>';else{h+='<div class="sc"><table><tr><th>Übung</th><th>Zuletzt</th><th>Beste kg</th><th></th></tr>';
+ks.forEach(e=>{const a=by[e],l=a[a.length-1],best=Math.max(...a.map(x=>x.k));h+=`<tr><td>${esc(e)}</td><td>${l.s}×${l.r} · ${l.k}kg<div class="mu">${l.d.slice(8)}.${l.d.slice(5,7)}.</div></td><td>${best}</td><td class="mu">${a.length}×</td></tr>`});h+='</table></div>'}
+return h+'</div>'}
+function addLift(){const e=$('le').value.trim();if(!e)return;if(!S.ex.includes(e))S.ex.push(e);S.lifts.push({d:$('ld').value,e,s:+$('ls').value||1,r:+$('lr').value||0,k:+$('lk').value||0});save();draw()}
+function bars(v,l,c,u){const mx=Math.max(1,...v),w=320/v.length;return `<svg viewBox="0 0 320 120" width="100%">`+v.map((x,i)=>{const h=x/mx*80;return `<rect x="${i*w+6}" y="${95-h}" width="${w-12}" height="${h}" rx="3" fill="${c}"/><text x="${i*w+w/2}" y="${90-h}" text-anchor="middle">${x?x+u:''}</text><text x="${i*w+w/2}" y="110" text-anchor="middle">${l[i]}</text>`}).join('')+'</svg>'}
+function vProg(){const ks=[],lb=[];for(let i=-7;i<=0;i++){const m=wk(i);ks.push(iso(m));lb.push(fmt(m).replace(' ',''))}
+const done=ks.map(pct),min=ks.map(k=>{const s=new Date(k),e=new Date(k);e.setDate(e.getDate()+6);return S.rides.filter(r=>r.d>=k&&r.d<=iso(e)).reduce((a,r)=>a+r.m,0)});
+let streak=0;for(let i=7;i>=0;i--){if(done[i]>=80)streak++;else if(i<7)break}
+const tot=S.rides.length,lifts=new Set(S.lifts.map(l=>l.d)).size;
+return `<div class="card"><div class="stat"><div><b>${done[7]}%</b><span class="mu">diese Woche</span></div><div><b>${streak}</b><span class="mu">Wochen ≥ 80 %</span></div><div><b>${tot}</b><span class="mu">Ausfahrten</span></div><div><b>${lifts}</b><span class="mu">Krafttage</span></div></div></div>
+<div class="card"><h2>Erledigte Einheiten pro Woche</h2>${bars(done,lb,'var(--kra)','%')}</div>
+<div class="card"><h2>Radminuten pro Woche</h2>${bars(min,lb,'var(--rad)','')}<div class="mu">Basiert auf deinem Rad-Log.</div></div>`}
+function vBack(){return `<div class="card"><h2>Daten sichern</h2><p class="mu">Deine Daten liegen nur in diesem Browser auf diesem Gerät. Kopiere den Text als Backup oder um ihn auf einem anderen Gerät einzufügen.</p>
+<textarea id="bk">${esc(JSON.stringify(S))}</textarea><div class="row" style="margin-top:8px"><button onclick="$('bk').select();document.execCommand('copy')">Kopieren</button><button onclick="imp()">Importieren</button></div></div>
+<div class="card"><h2>Strava / Zwift</h2><p class="mu">Zwift kann Aktivitäten automatisch zu Strava senden. Eine direkte Live-Anbindung ist in dieser Seite nicht möglich, deshalb trägst du Minuten und Watt kurz im Rad-Log ein.</p></div>`}
+function imp(){try{S=Object.assign({weeks:{},rides:[],lifts:[],ex:EX0.slice()},JSON.parse($('bk').value));save();alert('Import erfolgreich');draw()}catch(e){alert('Der Text ist kein gültiges Backup.')}}
+draw();
+</script></body></html>
